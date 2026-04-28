@@ -10,12 +10,6 @@ template:
     imagePullSecrets:
     - name: arc-runner-harbor-pull
     initContainers:
-    - name: init-dind-externals
-      image: harbor-core.harbor.svc.cluster.local/arc/actions-runner:latest
-      command: ["cp", "-r", "/home/runner/externals/.", "/home/runner/tmpDir/"]
-      volumeMounts:
-      - name: dind-externals
-        mountPath: /home/runner/tmpDir
     - name: init-docker-config
       image: harbor-core.harbor.svc.cluster.local/arc/actions-runner:latest
       command:
@@ -34,41 +28,12 @@ template:
     containers:
     - name: runner
       image: harbor-core.harbor.svc.cluster.local/arc/actions-runner:latest
-      command: ["/home/runner/run.sh"]
-      env:
-      - name: DOCKER_HOST
-        value: unix:///var/run/docker.sock
       volumeMounts:
-      - name: work
-        mountPath: /home/runner/_work
-      - name: dind-sock
-        mountPath: /var/run
-      - name: dind-externals
-        mountPath: /home/runner/externals
       - name: docker-config
         mountPath: /home/runner/.docker
     - name: dind
       image: harbor-core.harbor.svc.cluster.local/arc/dind:latest
-      args:
-      - dockerd
-      - --host=unix:///var/run/docker.sock
-      - --group=123
-      securityContext:
-        privileged: true
-      volumeMounts:
-      - name: work
-        mountPath: /home/runner/_work
-      - name: dind-sock
-        mountPath: /var/run
-      - name: dind-externals
-        mountPath: /home/runner/externals
     volumes:
-    - name: work
-      emptyDir: {}
-    - name: dind-sock
-      emptyDir: {}
-    - name: dind-externals
-      emptyDir: {}
     - name: docker-config
       emptyDir: {}
     - name: harbor-creds
