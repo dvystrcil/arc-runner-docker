@@ -1,0 +1,79 @@
+githubConfigUrl: "https://github.com/dvystrcil/arc-runner-docker"
+runnerScaleSetName: "arc-runner-docker-runner"
+minRunners: 0
+maxRunners: 3
+
+template:
+  spec:
+    nodeSelector:
+      kubernetes.io/hostname: k8s-node-hpm-01
+    imagePullSecrets:
+    - name: arc-runner-harbor-pull
+    initContainers:
+    - name: init-dind-externals
+      image: harbor.sirddail.net/arc/actions-runner:latest
+      command: ["cp", "-r", "/home/runner/externals/.", "/home/runner/tmpDir/"]
+      volumeMounts:
+      - name: dind-externals
+        mountPath: /home/runner/tmpDir
+    - name: init-docker-config
+      image: harbor.sirddail.net/arc/actions-runner:latest
+      command:
+      - sh
+      - -c
+      - |
+        mkdir -p /home/runner/.docker
+        cp /harbor-creds/config.json /home/runner/.docker/config.json
+        chmod 600 /home/runner/.docker/config.json
+      volumeMounts:
+      - name: harbor-creds
+        mountPath: /harbor-creds
+        readOnly: true
+      - name: docker-config
+        mountPath: /home/runner/.docker
+    containers:
+    - name: runner
+      image: harbor.sirddail.net/arc/actions-runner:latest
+      command: ["/home/runner/run.sh"]
+      env:
+      - name: DOCKER_HOST
+        value: unix:///var/run/docker.sock
+      volumeMounts:
+      - name: work
+        mountPath: /home/runner/_work
+      - name: dind-sock
+        mountPath: /var/run
+      - name: dind-externals
+        mountPath: /home/runner/externals
+      - name: docker-config
+        mountPath: /home/runner/.docker
+    - name: dind
+      image: harbor.sirddail.net/arc/dind:latest
+      args:
+      - dockerd
+      - --host=unix:///var/run/docker.sock
+      - --group=123
+      securityContext:
+        privileged: true
+      volumeMounts:
+      - name: work
+        mountPath: /home/runner/_work
+      - name: dind-sock
+        mountPath: /var/run
+      - name: dind-externals
+        mountPath: /home/runner/externals
+    volumes:
+    - name: work
+      emptyDir: {}
+    - name: dind-sock
+      emptyDir: {}
+    - name: dind-externals
+      emptyDir: {}
+    - name: docker-config
+      emptyDir: {}
+    - name: harbor-creds
+      secret:
+        secretName: arc-runner-harbor-pull
+        items:
+        - key: .dockerconfigjson
+          path: config.json
