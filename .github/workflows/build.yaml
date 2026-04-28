@@ -30,13 +30,6 @@ jobs:
         export-type: env
         domain: http://infisical-infisical-standalone-infisical.infisical.svc.cluster.local:8080
 
-    - name: Fetch latest Harbor CA cert
-      run: |
-        kubectl get secret harbor-internal-ca -n harbor \
-          -o jsonpath='{.data.ca\.crt}' | base64 -d > harbor-internal-ca.crt
-        echo "CA cert fingerprint:"
-        openssl x509 -noout -fingerprint -sha256 -in harbor-internal-ca.crt
-
     - name: Log in to Harbor (internal)
       uses: docker/login-action@v3
       with:
