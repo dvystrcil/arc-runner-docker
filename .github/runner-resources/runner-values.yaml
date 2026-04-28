@@ -11,7 +11,7 @@ template:
     - name: arc-runner-harbor-pull
     initContainers:
     - name: init-docker-config
-      image: harbor-core.harbor.svc.cluster.local/arc/actions-runner:latest
+      image: harbor.sirddail.net/arc/actions-runner:latest
       command:
       - sh
       - -c
@@ -27,12 +27,12 @@ template:
         mountPath: /home/runner/.docker
     containers:
     - name: runner
-      image: harbor-core.harbor.svc.cluster.local/arc/actions-runner:latest
+      image: harbor.sirddail.net/arc/actions-runner:latest
       volumeMounts:
       - name: docker-config
         mountPath: /home/runner/.docker
     - name: dind
-      image: harbor-core.harbor.svc.cluster.local/arc/dind:latest
+      image: harbor.sirddail.net/arc/dind:latest
     volumes:
     - name: docker-config
       emptyDir: {}
