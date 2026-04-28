@@ -11,7 +11,7 @@ env:
 
 jobs:
   build:
-    runs-on: stable-diffution-webui-rcom-runner
+    runs-on: arc-runner-docker-runner
     permissions:
       contents: read
 

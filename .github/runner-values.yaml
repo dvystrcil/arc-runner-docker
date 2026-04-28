@@ -5,8 +5,10 @@ maxRunners: 3
 
 template:
   spec:
+    nodeSelector:
+      kubernetes.io/hostname: k8s-node-hpm-01
     imagePullSecrets:
-    - name: sd-runner-harbor-pull
+    - name: arc-runner-harbor-pull
     initContainers:
     - name: init-dind-externals
       image: harbor-core.harbor.svc.cluster.local/arc/actions-runner:latest
@@ -71,7 +73,7 @@ template:
       emptyDir: {}
     - name: harbor-creds
       secret:
-        secretName: sd-runner-harbor-pull
+        secretName: arc-runner-harbor-pull
         items:
         - key: .dockerconfigjson
           path: config.json
