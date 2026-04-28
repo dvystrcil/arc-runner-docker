@@ -1,0 +1,4 @@
+githubConfigUrl: "https://github.com/dvystrcil/arc-runner-docker" 
+runnerScaleSetName: "arc-runner-runner"
+minRunners: 0
+maxRunners: 3
