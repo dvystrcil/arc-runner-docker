@@ -1,0 +1,4 @@
+FROM docker:dind
+
+COPY harbor-internal-ca.crt /usr/local/share/ca-certificates/harbor-internal-ca.crt
+RUN apk add --no-cache ca-certificates && update-ca-certificates
