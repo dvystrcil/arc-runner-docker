@@ -1,8 +1,6 @@
 name: Build and Push Runner Images
 
 on:
-  schedule:
-    - cron: '0 2 * * *'  # 2am UTC nightly
   workflow_dispatch:
 
 env:
