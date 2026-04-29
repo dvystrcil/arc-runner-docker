@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notes:
+    runs-on: arc-runner-docker-runner
+    permissions:
+      contents: write
+
+    steps:
+      - name: Generate AI release notes
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          API="https://api.github.com/repos/${REPO}"
+          AUTH="Authorization: Bearer $GITHUB_TOKEN"
+
+          PREV_TAG=$(curl -sf -H "$AUTH" "${API}/releases" \
+            | jq -r "[.[] | select(.tag_name != \"$TAG\")] | .[0].tag_name // empty")
+
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(curl -sf -H "$AUTH" "${API}/compare/${PREV_TAG}...${TAG}" \
+              | jq -r '[.commits[] | .commit.message | split("\n")[0]] | join("\n")')
+          else
+            COMMITS="Initial release"
+          fi
+
+          PROMPT="Write release notes for arc-runner-docker ${TAG}, a nightly-built custom GitHub Actions runner image (with Docker-in-Docker) for a self-hosted Kubernetes homelab. Based on these commits since ${PREV_TAG}:\n\n${COMMITS}\n\nUse markdown with brief sections (What's Changed, etc.). Focus on infrastructure and dependency changes. Be concise. Do not include preamble or sign-off."
+
+          NOTES=$(curl -sf --max-time 120 \
+            http://ollama.ollama.svc.cluster.local/api/generate \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg model "gemma4:31b" --arg prompt "$PROMPT" \
+              '{model: $model, prompt: $prompt, stream: false}')" \
+            | jq -r .response)
+
+          if [ -n "$NOTES" ]; then
+            RELEASE_ID=$(curl -sf -H "$AUTH" "${API}/releases/tags/${TAG}" | jq -r .id)
+            curl -sf -X PATCH -H "$AUTH" -H "Content-Type: application/json" \
+              "${API}/releases/${RELEASE_ID}" \
+              -d "$(jq -n --arg body "$NOTES" '{body: $body}')"
+          fi
