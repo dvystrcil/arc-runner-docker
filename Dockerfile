@@ -25,6 +25,20 @@ RUN add-apt-repository -y ppa:git-core/ppa \
     && apt-get install -y wget flatpak flatpak-builder
     #gh
 
+# Initialize Flatpak
+RUN flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo \
+    && flatpak --user install -y flathub org.freedesktop.Sdk/x86_64/23.08 \
+    && flatpak --user install -y flathub org.freedesktop.Platform/x86_64/23.08 \
+
+# cd /var/lib/flatpak
+# sudo mkdir -p repo/objects repo/tmp
+# sudo tee repo/config <<EOF
+# [core]
+# repo_version=1
+# mode=bare-user-only
+# min-free-space-size=500MB
+# EOF
+
 # Add Harbor internal CA to system trust store
 COPY harbor-internal-ca.crt /usr/local/share/ca-certificates/harbor-internal-ca.crt
 RUN update-ca-certificates
