@@ -1,6 +1,9 @@
 FROM ghcr.io/actions/actions-runner:latest
+ARG YQ_VERSION=v4.52.4
+ARG DOCKER_COMPOSE_VERSION=v5.1.0
+ARG CONTAINERD_VERSION=2.2.1
 
-USER 0
+USER root
 
 # Disable installation of recommended and suggested packages to reduce image size
 RUN cat > /etc/apt/apt.conf.d/99norecommends <<EOF
@@ -17,8 +20,8 @@ RUN add-apt-repository -y ppa:git-core/ppa \
     # && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     # && cat /etc/apt/sources.list.d/github-cli.list \
     && apt-get update -y \
-    && apt-get upgrade -y \
-    && apt-get install -y gh
+    && apt-get upgrade -y 
+    # && apt-get install -y gh
 
 # Add Harbor internal CA to system trust store
 COPY harbor-internal-ca.crt /usr/local/share/ca-certificates/harbor-internal-ca.crt
