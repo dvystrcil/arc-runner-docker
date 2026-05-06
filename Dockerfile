@@ -31,15 +31,15 @@ RUN flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.
 RUN flatpak remote-add --if-not-exists flathub-beta https://flathub.org/beta-repo/flathub-beta.flatpakrepo
 RUN flatpak remote-add --if-not-exists gnome-nightly https://nightly.gnome.org/gnome-nightly.flatpakrepo
 
-RUN cd /var/lib/flatpak \
-    && mkdir -p repo/objects repo/tmp
+# RUN cd /var/lib/flatpak \
+#     && mkdir -p repo/objects repo/tmp
     
-RUN tee repo/config <<EOF
-[core]
-repo_version=1
-mode=bare-user-only
-min-free-space-size=500MB
-EOF
+# RUN tee repo/config <<EOF
+# [core]
+# repo_version=1
+# mode=bare-user-only
+# min-free-space-size=500MB
+# EOF
 
 # Add Harbor internal CA to system trust store
 COPY harbor-internal-ca.crt /usr/local/share/ca-certificates/harbor-internal-ca.crt
