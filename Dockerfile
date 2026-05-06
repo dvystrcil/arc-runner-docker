@@ -21,7 +21,8 @@ RUN add-apt-repository -y ppa:git-core/ppa \
     # && cat /etc/apt/sources.list.d/github-cli.list \
     && apt-get update -y \
     && apt-get upgrade -y 
-    # && apt-get install -y gh
+    && apt-get install -y wget
+    #gh
 
 # Add Harbor internal CA to system trust store
 COPY harbor-internal-ca.crt /usr/local/share/ca-certificates/harbor-internal-ca.crt
