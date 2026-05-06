@@ -25,7 +25,7 @@ RUN add-apt-repository -y ppa:git-core/ppa \
 
 # Add Harbor internal CA to system trust store
 COPY harbor-internal-ca.crt /usr/local/share/ca-certificates/harbor-internal-ca.crt
-RUN sudo update-ca-certificates
+RUN update-ca-certificates
 
 # install yq
 RUN export YQ_BINARY=yq_linux_amd64 \
