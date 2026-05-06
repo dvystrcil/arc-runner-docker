@@ -1,5 +1,7 @@
 FROM ghcr.io/actions/actions-runner:latest
 
+USER 0
+
 # Disable installation of recommended and suggested packages to reduce image size
 RUN cat > /etc/apt/apt.conf.d/99norecommends <<EOF
 APT::Install-Recommends "false";
