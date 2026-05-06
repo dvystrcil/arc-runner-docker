@@ -26,9 +26,10 @@ RUN add-apt-repository -y ppa:git-core/ppa \
     #gh
 
 # Initialize Flatpak
-RUN flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo \
-    && flatpak --user install -y flathub org.freedesktop.Sdk/x86_64/23.08 \
-    && flatpak --user install -y flathub org.freedesktop.Platform/x86_64/23.08 
+ENV TMPDIR=/tmp
+RUN flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+RUN flatpak remote-add --if-not-exists flathub-beta https://flathub.org/beta-repo/flathub-beta.flatpakrepo
+RUN flatpak remote-add --if-not-exists gnome-nightly https://nightly.gnome.org/gnome-nightly.flatpakrepo
 
 RUN cd /var/lib/flatpak \
     && mkdir -p repo/objects repo/tmp
