@@ -38,16 +38,18 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       with:
-        buildkitd-config-inline: |
-          [registry."harbor-core.harbor.svc.cluster.local"]
-            ca=["/etc/ssl/certs/ca-certificates.crt"]
+        # Use the docker driver so build+push run through the dind daemon,
+        # which trusts harbor-core via the mounted certs.d CA (see homelab#426).
+        # The default docker-container driver is a separate TLS trust domain
+        # that does NOT read /etc/docker/certs.d and fails to verify the
+        # rotated Harbor CA on push.
+        driver: docker
 
     - name: Build and push actions-runner
       uses: docker/build-push-action@v5
       with:
         context: .
         file: Dockerfile
-        platforms: linux/amd64
         push: true
         tags: |
           ${{ env.INTERNAL_REGISTRY }}/${{ env.PROJECT }}/actions-runner:latest
@@ -58,7 +60,6 @@ jobs:
       with:
         context: .
         file: Dockerfile.dind
-        platforms: linux/amd64
         push: true
         tags: |
           ${{ env.INTERNAL_REGISTRY }}/${{ env.PROJECT }}/dind:latest
