@@ -35,35 +35,24 @@ jobs:
         username: ${{ env.HB_USERNAME }}
         password: ${{ env.HB_PASSWORD }}
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      with:
-        # Use the docker driver so build+push run through the dind daemon,
-        # which trusts harbor-core via the mounted certs.d CA (see homelab#426).
-        # The default docker-container driver is a separate TLS trust domain
-        # that does NOT read /etc/docker/certs.d and fails to verify the
-        # rotated Harbor CA on push.
-        driver: docker
-
+    # Build and push via the docker CLI (daemon), NOT buildx/build-push-action.
+    # The push goes through the dind daemon, which trusts the rotated Harbor CA
+    # via the mounted certs.d bundle (same path that makes `docker login` work
+    # above). build-push-action pushes with buildkit's own exporter, a separate
+    # TLS trust domain that still sees the stale baked CA -> x509. See homelab#426.
     - name: Build and push actions-runner
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: Dockerfile
-        push: true
-        tags: |
-          ${{ env.INTERNAL_REGISTRY }}/${{ env.PROJECT }}/actions-runner:latest
-          ${{ env.INTERNAL_REGISTRY }}/${{ env.PROJECT }}/actions-runner:${{ github.run_number }}
+      run: |
+        img=${INTERNAL_REGISTRY}/${PROJECT}/actions-runner
+        docker build -f Dockerfile -t $img:latest -t $img:${{ github.run_number }} .
+        docker push $img:latest
+        docker push $img:${{ github.run_number }}
 
     - name: Build and push dind
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: Dockerfile.dind
-        push: true
-        tags: |
-          ${{ env.INTERNAL_REGISTRY }}/${{ env.PROJECT }}/dind:latest
-          ${{ env.INTERNAL_REGISTRY }}/${{ env.PROJECT }}/dind:${{ github.run_number }}
+      run: |
+        img=${INTERNAL_REGISTRY}/${PROJECT}/dind
+        docker build -f Dockerfile.dind -t $img:latest -t $img:${{ github.run_number }} .
+        docker push $img:latest
+        docker push $img:${{ github.run_number }}
 
     - name: Create GitHub release
       env:
