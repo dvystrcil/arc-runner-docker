@@ -21,7 +21,7 @@ RUN add-apt-repository -y ppa:git-core/ppa \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     && apt-get update -y \
     && apt-get upgrade -y \
-    && apt-get install -y wget gh python3-socketio python3-websocket postgresql-client
+    && apt-get install -y wget gh python3-socketio python3-websocket python3-yaml postgresql-client
 
 # Initialize Flatpak
 # ENV TMPDIR=/tmp
