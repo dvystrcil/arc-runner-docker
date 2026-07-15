@@ -1,6 +1,11 @@
+# kubectl comes from the official image via the registry path — plain
+# HTTP downloads from dl.k8s.io hang deterministically inside the dind
+# buildkit network (homelab#462; two identical ~5min timeouts), while
+# registry pulls work fine.
+FROM registry.k8s.io/kubectl:v1.34.6 AS kubectl
+
 FROM ghcr.io/actions/actions-runner:latest
 ARG YQ_VERSION=v4.52.4
-ARG KUBECTL_VERSION=v1.34.6
 ARG DOCKER_COMPOSE_VERSION=v5.1.0
 ARG CONTAINERD_VERSION=2.2.1
 
@@ -50,10 +55,9 @@ RUN export YQ_BINARY=yq_linux_amd64 \
     && chmod +x /usr/local/bin/yq
 
 # install kubectl — pinned to the cluster minor (homelab#462); CI audits
-# use the runner pod's in-cluster ServiceAccount (RBAC: homelab
-# k8s/arc-runner-rbac, read-only, no secrets)
-RUN wget -q https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl -O /usr/local/bin/kubectl \
-    && chmod +x /usr/local/bin/kubectl
+# use the runner pod's in-cluster ServiceAccount (RBAC: arc-runners repo,
+# read-only, no secrets)
+COPY --from=kubectl /bin/kubectl /usr/local/bin/kubectl
 
 ENV RUNNER_TOOL_CACHE=/opt/hostedtoolcache
 RUN mkdir /opt/hostedtoolcache \
