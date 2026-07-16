@@ -1,7 +1,10 @@
 # kubectl comes from the official image via the registry path — plain
-# HTTP downloads from dl.k8s.io hang deterministically inside the dind
+# HTTP downloads from dl.k8s.io hung deterministically inside the dind
 # buildkit network (homelab#462; two identical ~5min timeouts), while
-# registry pulls work fine.
+# registry pulls work fine. ROOT CAUSE since fixed: dind bridge MTU
+# 1500 > flannel 1450 (argocd-projects#75; dockerd now runs --mtu=1450,
+# build.yaml carries a network canary). The registry COPY stays as
+# defense in depth — it's also just the more robust pattern.
 FROM registry.k8s.io/kubectl:v1.34.6 AS kubectl
 
 FROM ghcr.io/actions/actions-runner:latest
