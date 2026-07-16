@@ -17,6 +17,17 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v5
 
+    # dind network canary (argocd-projects#75): fetch through the dind
+    # bridge the exact URL that black-holed when the bridge MTU (1500)
+    # exceeded the flannel overlay (1450). Fails fast if the MTU
+    # regression ever comes back, instead of a build step hanging 5min.
+    - name: dind network canary
+      run: |
+        docker run --rm curlimages/curl:latest \
+          -sfSL -o /dev/null -w 'canary fetch: %{time_total}s\n' \
+          --max-time 30 \
+          https://dl.k8s.io/release/v1.34.6/bin/linux/amd64/kubectl
+
     - name: Fetch secrets from Infisical
       uses: Infisical/secrets-action@v1.0.7
       with:
