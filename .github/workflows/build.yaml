@@ -15,7 +15,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v7
 
     # dind network canary (argocd-projects#75): fetch through the dind
     # bridge the exact URL that black-holed when the bridge MTU (1500)
