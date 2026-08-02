@@ -5,7 +5,7 @@
 # 1500 > flannel 1450 (argocd-projects#75; dockerd now runs --mtu=1450,
 # build.yaml carries a network canary). The registry COPY stays as
 # defense in depth — it's also just the more robust pattern.
-FROM registry.k8s.io/kubectl:v1.34.6 AS kubectl
+FROM registry.k8s.io/kubectl:v1.36.3 AS kubectl
 
 FROM ghcr.io/actions/actions-runner:latest
 ARG YQ_VERSION=v4.52.4
