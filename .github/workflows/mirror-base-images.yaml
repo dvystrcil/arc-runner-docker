@@ -23,7 +23,7 @@ jobs:
       # converges on upstream and the comparison can essentially never report
       # a change. See homelab#1180.
       - name: Restore last-seen digests
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .upstream-digests
           key: upstream-digests-${{ github.run_id }}
