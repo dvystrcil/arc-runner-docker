@@ -23,6 +23,10 @@ APT::Get::Install-Suggests "false";
 Apt::AutoRemove::SuggestsImportant "false";
 EOF
 
+# python3-venv + python3-pip (2026-09-26): jobs moving off GitHub-hosted
+# runners to save Actions minutes (1,801/2,000 used) need them --
+# dvystrcil/yaml-validate-action builds a venv for yamllint, and several repos'
+# checks pip-install into one. A pod probe showed this image had neither.
 RUN add-apt-repository -y ppa:git-core/ppa \
     && mkdir -p -m 755 /etc/apt/keyrings \
     && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
@@ -30,7 +34,7 @@ RUN add-apt-repository -y ppa:git-core/ppa \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     && apt-get update -y \
     && apt-get upgrade -y \
-    && apt-get install -y wget gh python3-socketio python3-websocket python3-yaml python3-ruamel.yaml postgresql-client
+    && apt-get install -y wget gh python3-socketio python3-websocket python3-yaml python3-ruamel.yaml postgresql-client python3-venv python3-pip
 
 # Initialize Flatpak
 # ENV TMPDIR=/tmp
