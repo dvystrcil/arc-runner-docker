@@ -32,6 +32,8 @@ jobs:
 
       - name: Check whether upstream moved
         id: mirror
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           mkdir -p .upstream-digests
@@ -55,6 +57,20 @@ jobs:
             fi
             printf '%s' "$up" > ".upstream-digests/${name}"
           done
+
+          # The digest above is recorded as SEEN before any build runs, so a
+          # build that then fails is never retried until upstream moves again
+          # (2026-10-27: a failed build left runner 2.338.2 unbuilt, on GitHub's
+          # 30-day update clock). Retry while the latest build is a failure.
+          # An in-progress run has no conclusion yet and is left alone.
+          last=$(gh api "repos/${{ github.repository }}/actions/workflows/build.yaml/runs?per_page=1" \
+            --jq '.workflow_runs[0].conclusion // "none"')
+          echo "last build: ${last}"
+          case "$last" in
+            failure|cancelled|timed_out|startup_failure)
+              echo "last build did not succeed: retrying"
+              changed=true ;;
+          esac
 
           echo "changed=${changed}" >> "$GITHUB_OUTPUT"
 

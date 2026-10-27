@@ -21,11 +21,19 @@ jobs:
     # bridge the exact URL that black-holed when the bridge MTU (1500)
     # exceeded the flannel overlay (1450). Fails fast if the MTU
     # regression ever comes back, instead of a build step hanging 5min.
+    #
+    # It tests for a STALL, not for throughput. An MTU black hole moves ~0
+    # bytes, so "< 100 KB/s for 20s" catches it as fast as before. It used to
+    # be `--max-time 30` on a 60 MB file, which also failed any link slower
+    # than ~2 MB/s: on 2026-10-27 the degraded Deco backhaul (homelab#1801) gave
+    # 1.55 MB/s, and two builds died here with 46 of 60 MB received, i.e.
+    # working, just slow. Checked with curl --limit-rate: 1.5 MB/s now passes
+    # (40s), 10 KB/s still exits 28 at 20s. --max-time stays as a backstop.
     - name: dind network canary
       run: |
         docker run --rm curlimages/curl:latest \
           -sfSL -o /dev/null -w 'canary fetch: %{time_total}s\n' \
-          --max-time 30 \
+          --speed-limit 100000 --speed-time 20 --max-time 600 \
           https://dl.k8s.io/release/v1.34.6/bin/linux/amd64/kubectl
 
     - name: Fetch secrets from Infisical
