@@ -85,6 +85,20 @@ jobs:
       run: |
         img=${INTERNAL_REGISTRY}/${PROJECT}/actions-runner
         docker build -f Dockerfile -t $img:latest -t $img:${{ github.run_number }} .
+        # Gate BEFORE push (homelab#1812 AC2): every runner pulls :latest, and
+        # a broken tool cache still reads as a hit (the .complete marker does
+        # not check contents) -- jobs would fail later, confusingly. Exercise
+        # each baked tool and its marker; any failure stops the push.
+        docker run --rm --entrypoint bash $img:latest -euo pipefail -c '
+          tc=$RUNNER_TOOL_CACHE
+          for t in go Python node; do ls $tc/$t/*/x64.complete; done
+          $tc/go/*/x64/bin/go version
+          cd "$(mktemp -d)" && printf "package main\nimport (\"fmt\";\"net/http\")\nfunc main(){fmt.Println(http.StatusOK)}\n" > m.go
+          GOFLAGS=-mod=mod $tc/go/*/x64/bin/go run m.go
+          LD_LIBRARY_PATH=$(echo $tc/Python/*/x64/lib) $tc/Python/*/x64/bin/python3 -c "import ssl,sqlite3,venv,unittest; print(\"python ok\")"
+          $tc/node/*/x64/bin/node -e "console.log(\"node\", process.version)"
+          helm version --short && kubeconform -v && kubectl version --client && yq --version
+          test -w $tc && echo "tool cache writable by $(id -un)"'
         docker push $img:latest
         docker push $img:${{ github.run_number }}
 
