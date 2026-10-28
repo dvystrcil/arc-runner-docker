@@ -129,6 +129,8 @@ EOF
 # runners to save Actions minutes (1,801/2,000 used) need them --
 # dvystrcil/yaml-validate-action builds a venv for yamllint, and several repos'
 # checks pip-install into one. A pod probe showed this image had neither.
+# libatomic1 (#40): node 26+ links libatomic.so.1, so setup-node's download
+# failed with exit 127 here while the node:26 container images ran fine.
 RUN add-apt-repository -y ppa:git-core/ppa \
     && mkdir -p -m 755 /etc/apt/keyrings \
     && /tmp/fetch.sh https://cli.github.com/packages/githubcli-archive-keyring.gpg /etc/apt/keyrings/githubcli-archive-keyring.gpg \
@@ -136,7 +138,7 @@ RUN add-apt-repository -y ppa:git-core/ppa \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     && apt-get update -y \
     && apt-get upgrade -y \
-    && apt-get install -y wget gh python3-socketio python3-websocket python3-yaml python3-ruamel.yaml postgresql-client python3-venv python3-pip
+    && apt-get install -y wget gh python3-socketio python3-websocket python3-yaml python3-ruamel.yaml postgresql-client python3-venv python3-pip libatomic1
 
 # Initialize Flatpak
 # ENV TMPDIR=/tmp
