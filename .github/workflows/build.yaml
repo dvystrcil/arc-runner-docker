@@ -99,6 +99,19 @@ jobs:
           LD_LIBRARY_PATH=$(echo $tc/Python/*/x64/lib) $tc/Python/*/x64/bin/python3 -c "import ssl,sqlite3,venv,unittest; print(\"python ok\")"
           $tc/node/*/x64/bin/node -e "console.log(\"node\", process.version)"
           helm version --short && kubeconform -v && kubectl version --client && yq --version
+          # Every baked binary resolves all its shared libraries. Explicit
+          # exit: set -e ignores a failing `! cmd`, and ldd exits 1 on the
+          # static ones (helm, kubectl...), which pipefail would pass through.
+          for b in $tc/node/*/x64/bin/node $tc/go/*/x64/bin/go $tc/Python/*/x64/bin/python3 \
+                   $(command -v helm kubeconform kubectl yq gh git); do
+            if LD_LIBRARY_PATH=$(echo $tc/Python/*/x64/lib) ldd $b 2>&1 | grep "not found"; then
+              echo "$b: unresolved shared library"; exit 1
+            fi
+          done
+          # ...and so do toolchains setup-* DOWNLOADS on a cache miss, which the
+          # loop above cannot see: node 26+ needs libatomic.so.1 and, without
+          # it, setup-node fails with exit 127 (#40).
+          for l in libatomic.so.1; do ldconfig -p | awk "{print \$1}" | grep -qx $l || { echo "missing $l"; exit 1; }; done
           test -w $tc && echo "tool cache writable by $(id -un)"'
         docker push $img:latest
         docker push $img:${{ github.run_number }}
