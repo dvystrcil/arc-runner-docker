@@ -90,7 +90,7 @@ USER root
 # renovate: datasource=github-releases depName=helm/helm
 ARG HELM_VERSION=v3.22.1
 # renovate: datasource=github-releases depName=yannh/kubeconform
-ARG KUBECONFORM_VERSION=v0.7.0
+ARG KUBECONFORM_VERSION=v0.8.0
 RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends curl ca-certificates >/dev/null
 COPY scripts/fetch.sh /usr/local/bin/fetch.sh
 RUN set -eux; cd /tmp; h=helm-${HELM_VERSION}-linux-amd64.tar.gz; \
