@@ -36,35 +36,40 @@ ARG NODE_VERSION=24.22.1
 ENV RUNNER_TOOL_CACHE=/opt/hostedtoolcache
 RUN apt-get update -qq \
     && apt-get install -y -qq --no-install-recommends curl ca-certificates jq >/dev/null
+# Every download: to a FILE, retried, aborted on a stall (tests/test-fetch.sh).
+COPY scripts/fetch.sh /usr/local/bin/fetch.sh
 # Go and Node from their official tarballs (setup-go/-node's own fallback
 # source; same content as actions/*-versions), checksum-verified.
 RUN set -eux; tc=$RUNNER_TOOL_CACHE; \
     mkdir -p $tc/go/$GO_VERSION/x64 $tc/node/$NODE_VERSION/x64; \
-    curl -fsSLo /tmp/go.tgz https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz; \
-    sha=$(curl -fsSL 'https://go.dev/dl/?mode=json&include=all' | jq -r --arg f "go${GO_VERSION}.linux-amd64.tar.gz" \
-          '.[].files[] | select(.filename == $f) | .sha256'); \
+    fetch.sh https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz /tmp/go.tgz; \
+    fetch.sh 'https://go.dev/dl/?mode=json&include=all' /tmp/go.json; \
+    sha=$(jq -r --arg f "go${GO_VERSION}.linux-amd64.tar.gz" \
+          '.[].files[] | select(.filename == $f) | .sha256' /tmp/go.json); \
     echo "$sha  /tmp/go.tgz" | sha256sum -c; \
     tar -xzf /tmp/go.tgz --strip-components=1 -C $tc/go/$GO_VERSION/x64; \
     touch $tc/go/$GO_VERSION/x64.complete; \
     n=node-v${NODE_VERSION}-linux-x64.tar.gz; \
-    curl -fsSLo /tmp/$n https://nodejs.org/dist/v${NODE_VERSION}/$n; \
-    curl -fsSL https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt | grep " $n\$" | (cd /tmp && sha256sum -c); \
+    fetch.sh https://nodejs.org/dist/v${NODE_VERSION}/$n /tmp/$n; \
+    fetch.sh https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt /tmp/node.sums; \
+    grep " $n\$" /tmp/node.sums | (cd /tmp && sha256sum -c); \
     tar -xzf /tmp/$n --strip-components=1 -C $tc/node/$NODE_VERSION/x64; \
     touch $tc/node/$NODE_VERSION/x64.complete; \
-    rm -f /tmp/go.tgz /tmp/$n
+    rm -f /tmp/go.tgz /tmp/go.json /tmp/$n /tmp/node.sums
 # Python MUST be the actions/python-versions build: it is compiled for
 # $RUNNER_TOOL_CACHE/Python/<ver>/x64. The URL carries a build-run id, so it is
 # resolved from the same manifest setup-python reads. A Renovate bump to a
 # release actions has not built yet fails HERE, loudly, at build time.
 # The build for THIS stage's OS release (= the runner's), read from os-release.
 RUN set -eux; . /etc/os-release; \
-    url=$(curl -fsSL https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json \
-          | jq -r --arg v "$PYTHON_VERSION" --arg os "$VERSION_ID" '.[] | select(.version == $v) | .files[] | select(.platform == "linux" and .platform_version == $os and .arch == "x64") | .download_url'); \
+    fetch.sh https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json /tmp/py.json; \
+    url=$(jq -r --arg v "$PYTHON_VERSION" --arg os "$VERSION_ID" '.[] | select(.version == $v) | .files[] | select(.platform == "linux" and .platform_version == $os and .arch == "x64") | .download_url' /tmp/py.json); \
     test -n "$url"; \
-    mkdir /tmp/py && curl -fsSL "$url" | tar -xz -C /tmp/py; \
+    fetch.sh "$url" /tmp/py.tgz; \
+    mkdir /tmp/py && tar -xzf /tmp/py.tgz -C /tmp/py; \
     cd /tmp/py && bash ./setup.sh >/dev/null; \
     test -f $RUNNER_TOOL_CACHE/Python/$PYTHON_VERSION/x64.complete; \
-    rm -rf /tmp/py
+    rm -rf /tmp/py /tmp/py.tgz /tmp/py.json
 # Strip what no CI job loads (807 -> 549 MB in the lab): CPython's own test
 # suite and static libs (embedding only); Go's compiler tests and stdlib
 # testdata (`go build` compiles src/ without them). NOT node's include/:
@@ -87,13 +92,15 @@ ARG HELM_VERSION=v3.22.1
 # renovate: datasource=github-releases depName=yannh/kubeconform
 ARG KUBECONFORM_VERSION=v0.7.0
 RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends curl ca-certificates >/dev/null
-RUN set -eux; cd /tmp; \
-    curl -fsSLO https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz; \
-    curl -fsSL https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz.sha256sum | sha256sum -c; \
+COPY scripts/fetch.sh /usr/local/bin/fetch.sh
+RUN set -eux; cd /tmp; h=helm-${HELM_VERSION}-linux-amd64.tar.gz; \
+    fetch.sh https://get.helm.sh/$h $h; \
+    fetch.sh https://get.helm.sh/$h.sha256sum $h.sha256sum; \
+    sha256sum -c $h.sha256sum; \
     tar -xzf helm-${HELM_VERSION}-linux-amd64.tar.gz --strip-components=1 -C /usr/local/bin linux-amd64/helm; \
-    curl -fsSLO https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz; \
-    curl -fsSL https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/CHECKSUMS \
-      | grep ' kubeconform-linux-amd64.tar.gz$' | sha256sum -c; \
+    fetch.sh https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz kubeconform-linux-amd64.tar.gz; \
+    fetch.sh https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/CHECKSUMS CHECKSUMS; \
+    grep ' kubeconform-linux-amd64.tar.gz$' CHECKSUMS | sha256sum -c; \
     tar -xzf kubeconform-linux-amd64.tar.gz -C /usr/local/bin kubeconform
 
 FROM ghcr.io/actions/actions-runner:latest
@@ -106,6 +113,8 @@ ARG YQ_VERSION=v4.54.1
 ARG DOCKER_COMPOSE_VERSION=v5.6.1
 
 USER root
+# For this stage's downloads only; removed in the clean-up step below.
+COPY scripts/fetch.sh /tmp/fetch.sh
 
 # Disable installation of recommended and suggested packages to reduce image size
 RUN cat > /etc/apt/apt.conf.d/99norecommends <<EOF
@@ -122,7 +131,7 @@ EOF
 # checks pip-install into one. A pod probe showed this image had neither.
 RUN add-apt-repository -y ppa:git-core/ppa \
     && mkdir -p -m 755 /etc/apt/keyrings \
-    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && /tmp/fetch.sh https://cli.github.com/packages/githubcli-archive-keyring.gpg /etc/apt/keyrings/githubcli-archive-keyring.gpg \
     && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
     && apt-get update -y \
@@ -151,7 +160,7 @@ RUN update-ca-certificates
 
 # install yq
 RUN export YQ_BINARY=yq_linux_amd64 \
-    && wget -q https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${YQ_BINARY} -O /usr/local/bin/yq \
+    && /tmp/fetch.sh https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${YQ_BINARY} /usr/local/bin/yq \
     && chmod +x /usr/local/bin/yq
 
 # install kubectl — pinned to the cluster minor (homelab#462); CI audits
@@ -168,12 +177,12 @@ COPY --from=toolcache --chown=runner:runner /opt/hostedtoolcache/ /opt/hostedtoo
 COPY --from=bins /usr/local/bin/helm /usr/local/bin/kubeconform /usr/local/bin/
 
 # Installing docker-compose
-RUN curl -fLo /usr/local/lib/docker/cli-plugins/docker-compose https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-Linux-x86_64 \
+RUN /tmp/fetch.sh https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-Linux-x86_64 /usr/local/lib/docker/cli-plugins/docker-compose \
     && chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
 # clean up and lock down
 RUN apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /etc/ssh/ssh_host_*
+    && rm -rf /etc/ssh/ssh_host_* /tmp/fetch.sh
 
 USER runner

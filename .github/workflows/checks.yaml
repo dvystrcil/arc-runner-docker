@@ -5,6 +5,7 @@ on:
     paths:
       - 'Dockerfile*'
       - 'renovate.json'
+      - 'scripts/**'
       - 'tests/**'
       - '.github/workflows/checks.yaml'
 
@@ -20,3 +21,12 @@ jobs:
       # would make the real run below meaningless.
       - run: tests/test-renovate-annotations.sh --self-test
       - run: tests/test-renovate-annotations.sh
+
+  fetch:
+    # No piped downloads in any Dockerfile, and scripts/fetch.sh retries a
+    # dropped transfer into a correct file and aborts a stall (local server).
+    runs-on: arc-runner-docker-runner
+    steps:
+      - uses: actions/checkout@v7
+      - run: tests/test-fetch.sh | tee out.txt
+      - run: grep -q '^TEST-FETCH-COMPLETE$' out.txt
