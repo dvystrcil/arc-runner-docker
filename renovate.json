@@ -14,5 +14,25 @@
         "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\nARG\\s+[A-Z0-9_]+_VERSION=(?<currentValue>\\S+)"
       ]
     }
+  ],
+  "packageRules": [
+    {
+      "description": "Baked tool cache (homelab#1812 AC2): the fleet's setup-go/setup-python ask for '1.27' and '3.x'/'3.14', so a minor bump (go 1.28, python 3.15) would stop serving them. Patch bumps only; moving the line is a deliberate Dockerfile edit.",
+      "matchDepNames": ["go", "python"],
+      "matchUpdateTypes": ["major", "minor"],
+      "enabled": false
+    },
+    {
+      "description": "Baked node: the fleet asks for '24'. Minor/patch within 24 only.",
+      "matchDepNames": ["node"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "Baked helm stays on 3: helm-validate-action installs 3 (get-helm-3), and baking 4 would silently change every chart render.",
+      "matchDepNames": ["helm/helm"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    }
   ]
 }
