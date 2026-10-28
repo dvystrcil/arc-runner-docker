@@ -19,7 +19,7 @@ FROM registry.k8s.io/kubectl:v1.37.2 AS kubectl
 # '24', '1.27'; a new minor (go 1.28, python 3.15) would stop serving them,
 # so moving the line is a deliberate edit here. Exact pins elsewhere (immich's
 # go 1.27.1) still download -- a miss is slow, not broken.
-FROM ubuntu:24.04 AS toolcache
+FROM ubuntu:26.04 AS toolcache
 # renovate: datasource=golang-version depName=go
 ARG GO_VERSION=1.27.3
 # renovate: datasource=python-version depName=python
@@ -71,7 +71,7 @@ RUN set -eux; tc=$RUNNER_TOOL_CACHE; \
 # action already skip their runtime downloads behind `command -v` (immich#52
 # failed on exactly that download, 2026-10-27). helm stays on 3: the action
 # installs 3 via get-helm-3, so this changes nothing but where it comes from.
-FROM ubuntu:24.04 AS bins
+FROM ubuntu:26.04 AS bins
 # renovate: datasource=github-releases depName=helm/helm
 ARG HELM_VERSION=v3.22.1
 # renovate: datasource=github-releases depName=yannh/kubeconform
