@@ -1,7 +1,29 @@
 name: Build and Push Runner Images
 
+# Three ways in (homelab#1812 AC3). It was workflow_dispatch only, fired by
+# mirror-base-images.yaml when an upstream digest moved, so a MERGED change
+# here (kubectl v1.37.2, #29) sat unbuilt until upstream happened to move.
+#   push:     a merged change to anything that goes into an image
+#   schedule: weekly, for apt-get upgrade in the Dockerfile; also the backstop
+#             if a build is missed (GitHub's 30-day runner-update rule)
+#   dispatch: the upstream watcher, and by hand
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'Dockerfile'
+      - 'Dockerfile.dind'
+      - 'harbor-internal-ca.crt'
+      - '.github/workflows/build.yaml'
+  schedule:
+    - cron: '17 4 * * 0'   # Sundays 04:17 UTC
   workflow_dispatch:
+
+# A push and the watcher can fire together; both push :latest, so never run
+# two at once (a later-starting, earlier-finishing build would be overwritten).
+concurrency:
+  group: build-runner-images
+  cancel-in-progress: false
 
 env:
   INTERNAL_REGISTRY: harbor-core.harbor.svc.cluster.local

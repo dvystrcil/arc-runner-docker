@@ -8,9 +8,13 @@
 FROM registry.k8s.io/kubectl:v1.37.2 AS kubectl
 
 FROM ghcr.io/actions/actions-runner:latest
+# Every *_VERSION ARG carries a `# renovate:` line, which renovate.json's
+# custom manager reads; tests/test-renovate-annotations.sh fails a PR that
+# adds one without it. An unannotated ARG is a pin nothing ever revisits.
+# renovate: datasource=github-releases depName=mikefarah/yq
 ARG YQ_VERSION=v4.52.4
+# renovate: datasource=github-releases depName=docker/compose
 ARG DOCKER_COMPOSE_VERSION=v5.1.0
-ARG CONTAINERD_VERSION=2.2.1
 
 USER root
 

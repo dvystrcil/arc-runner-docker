@@ -1,0 +1,22 @@
+name: checks
+
+on:
+  pull_request:
+    paths:
+      - 'Dockerfile*'
+      - 'renovate.json'
+      - 'tests/**'
+      - '.github/workflows/checks.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  renovate-annotations:
+    runs-on: arc-runner-docker-runner
+    steps:
+      - uses: actions/checkout@v7
+      # The checker's own fixtures first: a checker that passes everything
+      # would make the real run below meaningless.
+      - run: tests/test-renovate-annotations.sh --self-test
+      - run: tests/test-renovate-annotations.sh

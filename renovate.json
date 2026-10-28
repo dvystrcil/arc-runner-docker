@@ -2,5 +2,17 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Dockerfile `ARG *_VERSION=` pins annotated with a `# renovate: datasource=... depName=...` line directly above (homelab#1812 AC3). The dockerfile manager only reads FROM lines, so before this yq and docker-compose were never bumped. tests/test-renovate-annotations.sh fails a PR adding an unannotated *_VERSION ARG; if this regex ever stops matching, Renovate goes silent rather than erroring, so that test also checks the annotation's exact shape.",
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile[^/]*$/"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\nARG\\s+[A-Z0-9_]+_VERSION=(?<currentValue>\\S+)"
+      ]
+    }
   ]
 }
