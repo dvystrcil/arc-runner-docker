@@ -19,7 +19,14 @@ FROM registry.k8s.io/kubectl:v1.37.2 AS kubectl
 # '24', '1.27'; a new minor (go 1.28, python 3.15) would stop serving them,
 # so moving the line is a deliberate edit here. Exact pins elsewhere (immich's
 # go 1.27.1) still download -- a miss is slow, not broken.
-FROM ubuntu:24.04 AS toolcache
+#
+# Built FROM the runner image itself, not a separate ubuntu tag: the Python
+# build below targets the runner's OS release and runs (pip upgrade) during
+# the build, so the stage must be the OS the final image is. A separate
+# `ubuntu:NN.04` drifts on its own -- Renovate proposed 24.04 -> 26.04 for it
+# (#37) while the runner stayed on 24.04. Same base, same OS, by construction.
+FROM ghcr.io/actions/actions-runner:latest AS toolcache
+USER root
 # renovate: datasource=golang-version depName=go
 ARG GO_VERSION=1.27.3
 # renovate: datasource=python-version depName=python
@@ -49,9 +56,10 @@ RUN set -eux; tc=$RUNNER_TOOL_CACHE; \
 # $RUNNER_TOOL_CACHE/Python/<ver>/x64. The URL carries a build-run id, so it is
 # resolved from the same manifest setup-python reads. A Renovate bump to a
 # release actions has not built yet fails HERE, loudly, at build time.
-RUN set -eux; \
+# The build for THIS stage's OS release (= the runner's), read from os-release.
+RUN set -eux; . /etc/os-release; \
     url=$(curl -fsSL https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json \
-          | jq -r --arg v "$PYTHON_VERSION" '.[] | select(.version == $v) | .files[] | select(.platform == "linux" and .platform_version == "24.04" and .arch == "x64") | .download_url'); \
+          | jq -r --arg v "$PYTHON_VERSION" --arg os "$VERSION_ID" '.[] | select(.version == $v) | .files[] | select(.platform == "linux" and .platform_version == $os and .arch == "x64") | .download_url'); \
     test -n "$url"; \
     mkdir /tmp/py && curl -fsSL "$url" | tar -xz -C /tmp/py; \
     cd /tmp/py && bash ./setup.sh >/dev/null; \
@@ -71,7 +79,9 @@ RUN set -eux; tc=$RUNNER_TOOL_CACHE; \
 # action already skip their runtime downloads behind `command -v` (immich#52
 # failed on exactly that download, 2026-10-27). helm stays on 3: the action
 # installs 3 via get-helm-3, so this changes nothing but where it comes from.
-FROM ubuntu:24.04 AS bins
+# Runner base here too: one OS for every stage, nothing for Renovate to split.
+FROM ghcr.io/actions/actions-runner:latest AS bins
+USER root
 # renovate: datasource=github-releases depName=helm/helm
 ARG HELM_VERSION=v3.22.1
 # renovate: datasource=github-releases depName=yannh/kubeconform
