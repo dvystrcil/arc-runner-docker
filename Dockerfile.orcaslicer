@@ -1,0 +1,46 @@
+# Dedicated Linux build runner for OrcaSlicer.
+# Keep the general-purpose runner unchanged; this image layers project build
+# prerequisites on top of the matching general-purpose image release.
+ARG BASE_IMAGE=harbor.sirddail.net/arc/actions-runner:latest
+FROM ${BASE_IMAGE}
+
+USER root
+
+# Aligned with scripts/linux.d/debian in the OrcaSlicer baseline branch.
+# Ubuntu 24.04 uses the WebKitGTK 4.1 development package.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        autoconf \
+        build-essential \
+        cmake \
+        eglexternalplatform-dev \
+        extra-cmake-modules \
+        file \
+        g++ \
+        gettext \
+        git \
+        gstreamer1.0-gtk3 \
+        libcurl4-openssl-dev \
+        libdbus-1-dev \
+        libglew-dev \
+        libgstreamerd-3-dev \
+        libgtk-3-dev \
+        libmspack-dev \
+        libsecret-1-dev \
+        libspnav-dev \
+        libssl-dev \
+        libtool \
+        libudev-dev \
+        libwebkit2gtk-4.1-dev \
+        clang \
+        lld \
+        ninja-build \
+        texinfo \
+        wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Catch missing GTK3 headers at image-build time, not during the OrcaSlicer job.
+RUN dpkg-query -W -f='${Status}\n' libgtk-3-dev | grep -qx 'install ok installed' \
+    && test -f /usr/include/gtk-3.0/gtk/gtk.h
+
+USER runner
