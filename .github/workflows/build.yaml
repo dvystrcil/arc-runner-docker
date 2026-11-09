@@ -133,6 +133,7 @@ jobs:
           test -f /usr/include/gtk-3.0/gtk/gtk.h
           command -v cmake
           command -v ninja
+          command -v nasm && command -v yasm && command -v pkgconf
           echo "OrcaSlicer runner prerequisites OK; runtime user: $(id -un)"
         '
         docker push $img:latest
