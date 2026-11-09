@@ -110,7 +110,7 @@ FROM ghcr.io/actions/actions-runner:latest
 # renovate: datasource=github-releases depName=mikefarah/yq
 ARG YQ_VERSION=v4.54.1
 # renovate: datasource=github-releases depName=docker/compose
-ARG DOCKER_COMPOSE_VERSION=v5.6.1
+ARG DOCKER_COMPOSE_VERSION=v5.7.0
 
 USER root
 # For this stage's downloads only; removed in the clean-up step below.
