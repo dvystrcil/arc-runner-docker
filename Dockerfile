@@ -28,7 +28,7 @@ FROM registry.k8s.io/kubectl:v1.37.2 AS kubectl
 FROM ghcr.io/actions/actions-runner:latest AS toolcache
 USER root
 # renovate: datasource=golang-version depName=go
-ARG GO_VERSION=1.27.3
+ARG GO_VERSION=1.27.4
 # renovate: datasource=python-version depName=python
 ARG PYTHON_VERSION=3.14.10
 # renovate: datasource=node-version depName=node
