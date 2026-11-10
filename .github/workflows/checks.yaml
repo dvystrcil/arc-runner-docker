@@ -16,7 +16,7 @@ jobs:
   renovate-annotations:
     runs-on: arc-runner-docker-runner
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # The checker's own fixtures first: a checker that passes everything
       # would make the real run below meaningless.
       - run: tests/test-renovate-annotations.sh --self-test
@@ -27,6 +27,6 @@ jobs:
     # dropped transfer into a correct file and aborts a stall (local server).
     runs-on: arc-runner-docker-runner
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: tests/test-fetch.sh | tee out.txt
       - run: grep -q '^TEST-FETCH-COMPLETE$' out.txt

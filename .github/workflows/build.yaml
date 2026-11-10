@@ -39,7 +39,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v7
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
     # dind network canary (argocd-projects#75): fetch through the dind
     # bridge the exact URL that black-holed when the bridge MTU (1500)
@@ -61,7 +61,7 @@ jobs:
           https://dl.k8s.io/release/v1.34.6/bin/linux/amd64/kubectl
 
     - name: Fetch secrets from Infisical
-      uses: Infisical/secrets-action@v1.0.18
+      uses: Infisical/secrets-action@d2e351f16c6ca20d17c85e6c992e04bdeb64e87d # v1.0.18
       with:
         client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
         client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
@@ -72,7 +72,7 @@ jobs:
         domain: http://infisical-infisical-standalone-infisical.infisical.svc.cluster.local:8080
 
     - name: Log in to Harbor (internal)
-      uses: docker/login-action@v4
+      uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
       with:
         registry: ${{ env.INTERNAL_REGISTRY }}
         username: ${{ env.HB_USERNAME }}
