@@ -36,6 +36,7 @@ jobs:
     runs-on: arc-runner-docker-runner
     permissions:
       contents: write
+      id-token: write
 
     steps:
     - name: Checkout repository
@@ -63,8 +64,8 @@ jobs:
     - name: Fetch secrets from Infisical
       uses: Infisical/secrets-action@d2e351f16c6ca20d17c85e6c992e04bdeb64e87d # v1.0.18
       with:
-        client-id: ${{ secrets.INFISICAL_CLIENT_ID }}
-        client-secret: ${{ secrets.INFISICAL_CLIENT_SECRET }}
+        method: oidc
+        identity-id: ${{ vars.INFISICAL_IDENTITY_ID }}
         env-slug: prod
         project-slug: homelab-bz-gt
         secret-path: /
