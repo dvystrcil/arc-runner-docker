@@ -32,7 +32,7 @@ ARG GO_VERSION=1.27.4
 # renovate: datasource=python-version depName=python
 ARG PYTHON_VERSION=3.14.10
 # renovate: datasource=node-version depName=node
-ARG NODE_VERSION=24.22.2
+ARG NODE_VERSION=24.22.3
 ENV RUNNER_TOOL_CACHE=/opt/hostedtoolcache
 RUN apt-get update -qq \
     && apt-get install -y -qq --no-install-recommends curl ca-certificates jq >/dev/null
