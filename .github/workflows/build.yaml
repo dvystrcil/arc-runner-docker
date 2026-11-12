@@ -154,9 +154,19 @@ jobs:
       run: |
         DATE=$(date -u +%Y.%-m.%-d)
         NEW_TAG="v${DATE}.${GITHUB_RUN_NUMBER}"
-        curl -sf -X POST \
+        # Renovate in dvystrcil/argocd-projects bumps the pinned runner tags
+        # from THESE releases (argocd-projects#339), so a missing release is a
+        # build nobody deploys: fail loudly. The one tolerated case is a re-run,
+        # which reuses run_number and finds its own release already there.
+        code=$(curl -s -o release.json -w '%{http_code}' -X POST \
           -H "Authorization: Bearer $GITHUB_TOKEN" \
           -H "Content-Type: application/json" \
           "https://api.github.com/repos/${REPO}/releases" \
           -d "$(jq -n --arg tag "$NEW_TAG" --arg name "Nightly $NEW_TAG" \
-            '{tag_name: $tag, name: $name, generate_release_notes: true}')" || true
+            '{tag_name: $tag, name: $name, generate_release_notes: true}')")
+        if [ "$code" = 201 ]; then echo "created release $NEW_TAG"; exit 0; fi
+        if curl -sf -o /dev/null -H "Authorization: Bearer $GITHUB_TOKEN" \
+             "https://api.github.com/repos/${REPO}/releases/tags/${NEW_TAG}"; then
+          echo "release $NEW_TAG already exists (re-run)"; exit 0
+        fi
+        echo "::error::creating release $NEW_TAG failed: HTTP $code"; cat release.json; exit 1
