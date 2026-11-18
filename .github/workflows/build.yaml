@@ -173,8 +173,9 @@ jobs:
     # The release says why it was built and what changed (#58 AC1, AC2):
     # scripts/release-lib.sh writes the trigger, the actions/runner version
     # before -> after and a dpkg diff against the previous release's image.
-    # release.yml then APPENDS its AI commit summary below; it must not
-    # replace these facts.
+    # (release.yml, which was meant to add an AI commit summary, was deleted:
+    # it never ran once, because events caused by GITHUB_TOKEN -- this
+    # release -- do not trigger workflows.)
     - name: Create GitHub release
       env:
         GITHUB_TOKEN: ${{ github.token }}
