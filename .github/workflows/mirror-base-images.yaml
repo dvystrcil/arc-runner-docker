@@ -38,6 +38,7 @@ jobs:
           set -euo pipefail
           mkdir -p .upstream-digests
           changed=false
+          reason=""
 
           # No mirroring. ghcr-proxy and dockerhub-proxy are Harbor PROXY
           # CACHES: they pull from upstream on demand and REJECT pushes --
@@ -54,6 +55,8 @@ jobs:
             if [ "$up" != "$prev" ]; then
               echo "${name}: upstream moved"
               changed=true
+              # Old -> new digest, for the release body (#58 AC1).
+              reason="${reason:+$reason; }${name} $(printf '%s' "$prev" | tr -d '"') -> $(printf '%s' "$up" | tr -d '"')"
             fi
             printf '%s' "$up" > ".upstream-digests/${name}"
           done
@@ -69,18 +72,22 @@ jobs:
           case "$last" in
             failure|cancelled|timed_out|startup_failure)
               echo "last build did not succeed: retrying"
-              changed=true ;;
+              changed=true
+              reason="${reason:+$reason; }retry: the last build ended ${last}" ;;
           esac
 
           echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+          echo "reason=${reason}" >> "$GITHUB_OUTPUT"
 
       - name: Trigger build
         if: steps.mirror.outputs.changed == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          REASON: ${{ steps.mirror.outputs.reason }}
         run: |
+          # build.yaml declares the `reason` input; it lands in the release body.
           curl -sf -X POST \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yaml/dispatches" \
-            -d '{"ref":"main"}'
+            -d "$(jq -n --arg r "$REASON" '{ref: "main", inputs: {reason: $r}}')"

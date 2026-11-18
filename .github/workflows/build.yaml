@@ -20,6 +20,13 @@ on:
   schedule:
     - cron: '17 4 * * 0'   # Sundays 04:17 UTC
   workflow_dispatch:
+    inputs:
+      # Set by mirror-base-images.yaml: which upstream digest moved, old -> new.
+      # Empty means a person dispatched it. Goes into the release body (#58).
+      reason:
+        description: Why this build is running (the upstream watcher fills this in)
+        required: false
+        default: ''
 
 # A push and the watcher can fire together; both push :latest, so never run
 # two at once (a later-starting, earlier-finishing build would be overwritten).
@@ -84,10 +91,18 @@ jobs:
     # via the mounted certs.d bundle (same path that makes `docker login` work
     # above). build-push-action pushes with buildkit's own exporter, a separate
     # TLS trust domain that still sees the stale baked CA -> x509. See homelab#426.
+    # Image tag = <actions/runner version>-<run_number>, e.g. 2.338.2-81
+    # (arc-runner-docker#58). argocd-projects' Renovate reads it from the
+    # release tag below and treats a run-number-only change as a patch: a
+    # rebuild on the same runner automerges, a runner minor/major waits for
+    # review. scripts/release-lib.sh fails the build rather than make a tag
+    # outside that shape (Renovate goes quiet on one it cannot parse).
     - name: Build and push actions-runner
       run: |
+        set -o pipefail
+        . scripts/release-lib.sh
         img=${INTERNAL_REGISTRY}/${PROJECT}/actions-runner
-        docker build -f Dockerfile -t $img:latest -t $img:${{ github.run_number }} .
+        docker build -f Dockerfile -t $img:latest .
         # Gate BEFORE push (homelab#1812 AC2): every runner pulls :latest, and
         # a broken tool cache still reads as a hit (the .complete marker does
         # not check contents) -- jobs would fail later, confusingly. Exercise
@@ -115,17 +130,25 @@ jobs:
           # it, setup-node fails with exit 127 (#40).
           for l in libatomic.so.1; do ldconfig -p | awk "{print \$1}" | grep -qx $l || { echo "missing $l"; exit 1; }; done
           test -w $tc && echo "tool cache writable by $(id -un)"'
+        # Read the version from the image just built: the upstream image's
+        # labels do not carry it (org.opencontainers.image.version is "24.04").
+        ver=$(docker run --rm --entrypoint /home/runner/bin/Runner.Listener $img:latest --version 2>/dev/null | runner_version)
+        TAG=$(image_tag "$ver" "${{ github.run_number }}")
+        echo "actions/runner $ver -> image tag $TAG"
+        echo "RUNNER_VERSION=$ver" >> "$GITHUB_ENV"
+        echo "TAG=$TAG" >> "$GITHUB_ENV"
+        docker tag $img:latest $img:$TAG
         docker push $img:latest
-        docker push $img:${{ github.run_number }}
+        docker push $img:$TAG
 
     # Dedicated OrcaSlicer build image. It derives from the general-purpose
     # image just built above, so both images share the same runner/toolchain
-    # baseline and receive the same run-number tag in this release cycle.
+    # baseline and receive the same tag ($TAG) in this release cycle.
     - name: Build and push orcaslicer-runner
       run: |
-        base=${INTERNAL_REGISTRY}/${PROJECT}/actions-runner:${{ github.run_number }}
+        base=${INTERNAL_REGISTRY}/${PROJECT}/actions-runner:${TAG}
         img=${INTERNAL_REGISTRY}/${PROJECT}/orcaslicer-runner
-        docker build --pull -f Dockerfile.orcaslicer --build-arg BASE_IMAGE=$base -t $img:latest -t $img:${{ github.run_number }} .
+        docker build --pull -f Dockerfile.orcaslicer --build-arg BASE_IMAGE=$base -t $img:latest -t $img:${TAG} .
         # Validate non-root runtime and the GTK3 probe used by build_linux.sh.
         docker run --rm --entrypoint bash $img:latest -euo pipefail -c '
           test "$(id -u)" -ne 0
@@ -138,35 +161,72 @@ jobs:
           echo "OrcaSlicer runner prerequisites OK; runtime user: $(id -un)"
         '
         docker push $img:latest
-        docker push $img:${{ github.run_number }}
+        docker push $img:${TAG}
 
     - name: Build and push dind
       run: |
         img=${INTERNAL_REGISTRY}/${PROJECT}/dind
-        docker build -f Dockerfile.dind -t $img:latest -t $img:${{ github.run_number }} .
+        docker build -f Dockerfile.dind -t $img:latest -t $img:${TAG} .
         docker push $img:latest
-        docker push $img:${{ github.run_number }}
+        docker push $img:${TAG}
 
+    # The release says why it was built and what changed (#58 AC1, AC2):
+    # scripts/release-lib.sh writes the trigger, the actions/runner version
+    # before -> after and a dpkg diff against the previous release's image.
+    # release.yml then APPENDS its AI commit summary below; it must not
+    # replace these facts.
     - name: Create GitHub release
       env:
         GITHUB_TOKEN: ${{ github.token }}
         REPO: ${{ github.repository }}
+        EVENT: ${{ github.event_name }}
+        REASON: ${{ inputs.reason }}
+        ACTOR: ${{ github.actor }}
+        SHA: ${{ github.sha }}
       run: |
-        DATE=$(date -u +%Y.%-m.%-d)
-        NEW_TAG="v${DATE}.${GITHUB_RUN_NUMBER}"
+        set -euo pipefail
+        . scripts/release-lib.sh
+        API="https://api.github.com/repos/${REPO}"
+        AUTH="Authorization: Bearer $GITHUB_TOKEN"
+        NEW_TAG=$(release_tag "$TAG")
+        img=${INTERNAL_REGISTRY}/${PROJECT}/actions-runner
+        SUBJECT=
+        case "$EVENT" in
+          push)              TRIGGER=push; SUBJECT=$(git log -1 --format=%s "$SHA") ;;
+          schedule)          TRIGGER=schedule ;;
+          workflow_dispatch) if [ -n "$REASON" ]; then TRIGGER=watcher; else TRIGGER=manual; fi ;;
+          *) echo "::error::unexpected event $EVENT"; exit 1 ;;
+        esac
+
+        # Previous release = newest one that is not this build's own (a re-run
+        # finds its own release already there). Its image may be gone from
+        # Harbor; the body then says it could not compare, never "no changes".
+        PREV_TAG=$(curl -sf -H "$AUTH" "${API}/releases?per_page=5" \
+          | jq -r --arg t "$NEW_TAG" '[.[] | select(.tag_name != $t)][0].tag_name // empty')
+        dpkg_list() { docker run --rm --entrypoint dpkg-query "$1" -W -f='${Package} ${Version}\n'; }
+        OLD_RUNNER=
+        : > old-pkgs.txt
+        if [ -n "$PREV_TAG" ] && prev=$(prev_image_tag "$PREV_TAG") && docker pull -q "$img:$prev" >/dev/null; then
+          OLD_RUNNER=$(docker run --rm --entrypoint /home/runner/bin/Runner.Listener "$img:$prev" --version 2>/dev/null | runner_version) || OLD_RUNNER=
+          dpkg_list "$img:$prev" > old-pkgs.txt || : > old-pkgs.txt
+        fi
+        dpkg_list "$img:$TAG" > new-pkgs.txt
+
+        TRIGGER=$TRIGGER SUBJECT=$SUBJECT PREV_TAG=$PREV_TAG OLD_RUNNER=$OLD_RUNNER \
+          NEW_RUNNER=$RUNNER_VERSION OLD_PKGS=old-pkgs.txt NEW_PKGS=new-pkgs.txt \
+          release_body > body.md
+        cat body.md
+
         # Renovate in dvystrcil/argocd-projects bumps the pinned runner tags
         # from THESE releases (argocd-projects#339), so a missing release is a
         # build nobody deploys: fail loudly. The one tolerated case is a re-run,
         # which reuses run_number and finds its own release already there.
         code=$(curl -s -o release.json -w '%{http_code}' -X POST \
-          -H "Authorization: Bearer $GITHUB_TOKEN" \
-          -H "Content-Type: application/json" \
-          "https://api.github.com/repos/${REPO}/releases" \
-          -d "$(jq -n --arg tag "$NEW_TAG" --arg name "Nightly $NEW_TAG" \
-            '{tag_name: $tag, name: $name, generate_release_notes: true}')")
+          -H "$AUTH" -H "Content-Type: application/json" "${API}/releases" \
+          -d "$(jq -n --arg tag "$NEW_TAG" --arg name "actions-runner $TAG" --rawfile body body.md \
+            '{tag_name: $tag, name: $name, body: $body}')")
         if [ "$code" = 201 ]; then echo "created release $NEW_TAG"; exit 0; fi
-        if curl -sf -o /dev/null -H "Authorization: Bearer $GITHUB_TOKEN" \
-             "https://api.github.com/repos/${REPO}/releases/tags/${NEW_TAG}"; then
+        if curl -sf -o /dev/null -H "$AUTH" "${API}/releases/tags/${NEW_TAG}"; then
           echo "release $NEW_TAG already exists (re-run)"; exit 0
         fi
         echo "::error::creating release $NEW_TAG failed: HTTP $code"; cat release.json; exit 1

@@ -30,3 +30,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: tests/test-fetch.sh | tee out.txt
       - run: grep -q '^TEST-FETCH-COMPLETE$' out.txt
+
+  release:
+    # Image/release tag shape, runner version parsing, and the release body
+    # (#58). The tag format is a contract with argocd-projects' Renovate.
+    runs-on: arc-runner-docker-runner
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - run: tests/test-release.sh | tee out.txt
+      - run: grep -q '^TEST-RELEASE-COMPLETE$' out.txt
