@@ -30,7 +30,7 @@ jobs:
             COMMITS="Initial release"
           fi
 
-          PROMPT="Write release notes for arc-runner-docker ${TAG}, a nightly-built custom GitHub Actions runner image (with Docker-in-Docker) for a self-hosted Kubernetes homelab. Based on these commits since ${PREV_TAG}:\n\n${COMMITS}\n\nUse markdown with brief sections (What's Changed, etc.). Focus on infrastructure and dependency changes. Be concise. Do not include preamble or sign-off."
+          PROMPT="Write release notes for arc-runner-docker ${TAG}, a custom GitHub Actions runner image, rebuilt when an input changes, (with Docker-in-Docker) for a self-hosted Kubernetes homelab. Based on these commits since ${PREV_TAG}:\n\n${COMMITS}\n\nUse markdown with brief sections (What's Changed, etc.). Focus on infrastructure and dependency changes. Be concise. Do not include preamble or sign-off."
 
           NOTES=$(curl -sf --max-time 120 \
             http://ollama.ollama.svc.cluster.local/api/generate \
@@ -39,9 +39,14 @@ jobs:
               '{model: $model, prompt: $prompt, stream: false}')" \
             | jq -r .response)
 
+          # APPEND, never replace (arc-runner-docker#58): build.yaml already
+          # wrote the facts -- why it was built, actions/runner before -> after,
+          # the package diff. This summary of commits goes below them.
           if [ -n "$NOTES" ]; then
-            RELEASE_ID=$(curl -sf -H "$AUTH" "${API}/releases/tags/${TAG}" | jq -r .id)
+            RELEASE=$(curl -sf -H "$AUTH" "${API}/releases/tags/${TAG}")
+            RELEASE_ID=$(jq -r .id <<<"$RELEASE")
             curl -sf -X PATCH -H "$AUTH" -H "Content-Type: application/json" \
               "${API}/releases/${RELEASE_ID}" \
-              -d "$(jq -n --arg body "$NOTES" '{body: $body}')"
+              -d "$(jq -n --arg facts "$(jq -r '.body // ""' <<<"$RELEASE")" --arg notes "$NOTES" \
+                '{body: ($facts + "\n\n## Commit summary (AI-written)\n\n" + $notes)}')"
           fi
