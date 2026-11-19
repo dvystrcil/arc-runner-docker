@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   renovate-annotations:
-    runs-on: arc-runner-docker-runner
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # The checker's own fixtures first: a checker that passes everything
@@ -25,7 +25,7 @@ jobs:
   fetch:
     # No piped downloads in any Dockerfile, and scripts/fetch.sh retries a
     # dropped transfer into a correct file and aborts a stall (local server).
-    runs-on: arc-runner-docker-runner
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: tests/test-fetch.sh | tee out.txt
@@ -34,7 +34,7 @@ jobs:
   release:
     # Image/release tag shape, runner version parsing, and the release body
     # (#58). The tag format is a contract with argocd-projects' Renovate.
-    runs-on: arc-runner-docker-runner
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: tests/test-release.sh | tee out.txt
