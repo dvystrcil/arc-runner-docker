@@ -8,6 +8,7 @@ on:
       - 'scripts/**'
       - 'tests/**'
       - '.github/workflows/checks.yaml'
+      - '.github/workflows/build.yaml'
 
 permissions:
   contents: read
@@ -30,6 +31,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - run: tests/test-fetch.sh | tee out.txt
       - run: grep -q '^TEST-FETCH-COMPLETE$' out.txt
+
+  apt-snapshot:
+    # Dockerfile.orcaslicer's apt snapshot pin keeps its shape (homelab#1981,
+    # D-051): one APT_SNAPSHOT line for the bump job, --error-on=any, and
+    # build.yaml passing the cache and running the blocked-mirror builds. Those
+    # builds need the internal base image, so they run in build.yaml, in-cluster.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - run: tests/test-apt-snapshot.sh --static | tee out.txt
+      - run: grep -qx 'TEST-APT-SNAPSHOT-COMPLETE' out.txt
 
   release:
     # Image/release tag shape, runner version parsing, and the release body

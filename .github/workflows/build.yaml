@@ -144,11 +144,21 @@ jobs:
     # Dedicated OrcaSlicer build image. It derives from the general-purpose
     # image just built above, so both images share the same runner/toolchain
     # baseline and receive the same tag ($TAG) in this release cycle.
+    # Its Ubuntu packages come from the pinned snapshot in Dockerfile.orcaslicer,
+    # read through the in-cluster apt-cacher-ng (homelab#1981, D-051). The URL
+    # names the cache, so a cache outage fails this build; it never falls back
+    # to the live mirror. Before building, the blocked-mirror test proves both:
+    # live mirror blocked -> builds; cache blocked -> fails with apt's error.
     - name: Build and push orcaslicer-runner
+      env:
+        APT_SNAPSHOT_BASE: http://apt-cacher-ng.arc-runner.svc.cluster.local:3142/HTTPS///snapshot.ubuntu.com/ubuntu
       run: |
+        set -o pipefail
         base=${INTERNAL_REGISTRY}/${PROJECT}/actions-runner:${TAG}
         img=${INTERNAL_REGISTRY}/${PROJECT}/orcaslicer-runner
-        docker build --pull -f Dockerfile.orcaslicer --build-arg BASE_IMAGE=$base -t $img:latest -t $img:${TAG} .
+        BASE_IMAGE=$base tests/test-apt-snapshot.sh | tee apt-snapshot-test.out
+        test "$(tail -n 1 apt-snapshot-test.out)" = TEST-APT-SNAPSHOT-COMPLETE
+        docker build --pull -f Dockerfile.orcaslicer --build-arg BASE_IMAGE=$base --build-arg APT_SNAPSHOT_BASE=$APT_SNAPSHOT_BASE -t $img:latest -t $img:${TAG} .
         # Validate non-root runtime and the GTK3 probe used by build_linux.sh.
         docker run --rm --entrypoint bash $img:latest -euo pipefail -c '
           test "$(id -u)" -ne 0
