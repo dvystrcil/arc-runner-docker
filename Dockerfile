@@ -5,7 +5,7 @@
 # 1500 > flannel 1450 (argocd-projects#75; dockerd now runs --mtu=1450,
 # build.yaml carries a network canary). The registry COPY stays as
 # defense in depth — it's also just the more robust pattern.
-FROM registry.k8s.io/kubectl:v1.37.2 AS kubectl
+FROM registry.k8s.io/kubectl:v1.37.3 AS kubectl
 
 # Pre-populated RUNNER_TOOL_CACHE (homelab#1812 AC2, D-027): setup-go/
 # setup-python/setup-node find these instead of downloading at job time,
